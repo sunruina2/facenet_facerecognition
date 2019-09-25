@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>人脸识别</title>
+    <style>
+        html, body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+        }
+        body {
+            background-image: linear-gradient(to bottom left, #226198, #07C6A9);
+
+        }
+        .main{
+            width: calc(100% - 100px);
+            height: calc(100% - 150px);
+            padding: 0px 50px 50px 50px;
+            overflow: hidden;
+            text-align: center;
+            display: flex;
+        }
+        .top-side {
+            width: calc(100% - 100px);
+            display: flex;
+            padding: 0px 0px 0px 0px;
+            text-align:center;
+        }
+        .left-side {
+            flex: 4;
+            display: flex;
+            background-color: #333;
+            padding: 40px 40px 50px 40px;
+            border-radius:4px 4px 4px 4px;
+            // opacity:0.3;
+        }
+        .right-side {
+            position: relative;
+            flex: 1;
+            background-color: #333;
+            text-align:center;
+            ling-height:100px;
+            color:#fff;
+            vertical-align:middle;
+            display: table-cell;
+            border-radius:4px 4px 4px 4px;
+            // opacity:0.3;
+
+        }
+        .img {
+            max-width: 100%;
+            max-height: 100%;
+            display: inline-block;
+            margin: auto;
+            align-content: center;
+            border-radius:4px 4px 4px 4px;
+        }
+        .resultwrap {
+            font-size:14px;
+            position: absolute;
+            width: calc(100% - 40px);
+            top: 50%;
+            transform: translate(0px, -50%);
+        }
+        .line-p{
+            text-align: center;
+            font-size:13px;
+        }
+        .line-p-redwhite{
+            text-align: center;
+            font-size:18px;
+
+        }
+        .line-p-blue{
+            text-align: center;
+        }
+        .line-p-button{
+            text-align: left;
+            margin: 0px 0px 0px 0px;
+            font-size:13px;
+        }
+        .line-p-big{
+            text-align: center;
+            font-size:25px;
+        }
+        .line-p-c{
+            text-align: center;
+            font-size:20px;
+        }
+        .line-p-t{
+            text-align: center;
+            font-size:15px;
+            color: #00FFCC;
+        }
+        .line-p-top{
+            text-align: center;
+            font-size:30px;
+            color: #fff;
+            padding: -25px 0px -25px 0px;
+        }
+        .line-p-s{
+            text-align: center;
+            font-size: 12px;
+            color: #8A8A8A;
+        }
+        .blueFont{
+            text-align: left;
+            color: #00FFCC;
+            font-size:25px;
+        }
+        .redFont {
+            color: red;
+            font-size:20px;
+        }
+        .input {
+            width: calc(100% - 60px);
+            text-align: center;
+            outline: none;
+            border: 1px solid #00BF99;
+            height: 25px;
+            line-height: 25px;
+            padding: 0;
+            border-radius:4px 4px 4px 4px;
+            margin: 15px 0px 0px 0px;
+        }
+        .select_box {
+            width: calc(100% - 60px);
+            height: 25px;
+            border: 1px solid #00BF99;
+            border-radius:4px 4px 4px 4px;
+            margin: 15px 0px 0px 0px;
+        }
+        .button_y {
+            color: #fff;
+            width: 70px;
+            background: #00BF99;
+            outline: none;
+            height: 27px;
+            line-height: 25px;
+            border: 1px solid #00BF99;
+            //padding: 0px 0px 0px 0px;
+            border-radius:4px 4px 4px 4px;
+            margin: 15px 3px 0px 0px;
+        }
+        .button_n {
+            color: #fff;
+            width: 70px;
+            background: #8A8A8A;
+            outline: none;
+            height: 27px;
+            line-height: 25px;
+            border: 1px solid #8A8A8A;
+            //padding: 0px 0px 0px 0px;
+            border-radius:4px 4px 4px 4px;
+            margin: 15px 0px 0px 3px;
+        }
+        .button_big {
+            color: #fff;
+            width: 110px;
+            background: #00BF99;
+            outline: none;
+            height: 27px;
+            line-height: 25px;
+            border: 1px solid #00BF99;
+            padding: 0px 0px 0px 0px;
+            border-radius:4px 4px 4px 4px;
+            margin: 20px 0px 0px 0px;
+        }
+    </style>
+
+</head>
+<body>
+    <div >
+        <p class="line-p-top">数据中心欢迎系统</p>
+    </div>
+<div class="main">
+    <div class="left-side">
+        <img src="{{ url_for('video_feed') }}" class="img">
+    </div>
+    <div class="right-side">
+        <div id="ReloadThis" class="resultwrap"></div>
+    </div>
+</div>
+</body>
+<script type="text/javascript">
+    function Ajax()
+    {
+        var $http, $self = arguments.callee;
+        if (window.XMLHttpRequest) {
+            $http = new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+            try {
+                $http = new ActiveXObject('Msxml2.XMLHTTP');
+            } catch(e) {
+                $http = new ActiveXObject('Microsoft.XMLHTTP');
+            }
+        }
+        if ($http) {
+            $http.onreadystatechange = function()
+            {
+                if (/4|^complete$/.test($http.readyState)) {
+                    let result = JSON.parse($http.responseText);
+                    console.log(result);
+                    if (result.realtime === 'False'){
+                        let p = '<div><p class="line-p-t">多角度人脸入库</p></div>'
+                        let form = '<form action="/add" method="post" enctype="multipart/form-data"><input class="input" name="new_user" type="text" placeholder="请输入你的工号" /><select name="cars" class ="select_box"  ><option value="正面">正面</option><option value="侧脸">侧脸</option><option value="仰头">仰头</option><option value="低头">低头</option></select><button type ="submit" class="button_y" value="yes" name="submit"><p class="line-p-button">确认录入</p></button> <button type ="submit" class="button_n" value="no" name="submit"><p class="line-p-button">取消录入</p></button></form>'
+                        document.getElementById('ReloadThis').innerHTML = p+form;
+                    }
+                    else if (result.names && result.names.length === 1) {  // 单人 #1296db 蓝色
+                        if (result.names[0] === '未知的同学') {  // 单人不认识
+                            if (result.areas[0] < 0.01) {  // 单人不认识远
+                                let p = '<div><p class="line-p-c">请靠近摄像头^-^</p><p class="line-p-t">让我看清你的脸</p><p class="line-p-s">(注意:不要遮挡面部)</p></div>'
+                                document.getElementById('ReloadThis').innerHTML = p;
+                            } else {  // 单人不认识近
+                                let p = '<div><p class="line-p-big">Hi，你好~</p><p class="line-p-blue"><span class="blueFont">未知的同学</span></p><p class="line-p-redwhite">若<span class="redFont">未能识别</span>或<span class="redFont">识别错误</span></p><p class="line-p-white">请点击拍照，录入信息！^-^</p></p></div>'
+                                let form = '<form action="/capture" method="post" enctype="multipart/form-data"><button type="submit" class="button_big">拍下当前照片</button><p class="line-p-s">(注意:保持单人出镜,可以多角度录入)</p></form>'
+                                document.getElementById('ReloadThis').innerHTML = p+form;
+                            }
+                        } else {  // 单人认识
+                            console.log(result.names);
+                            let str = '';
+                            result.names.forEach(function(item, i) {
+                                    str += '<p class="line-p-blue"><span class="blueFont">' + item + '</span></p>'
+                            })
+                            let p = '<div><p class="line-p-big">Hi，你好~</p>' + str + '<p class="line-p-redwhite">若<span class="redFont">未能识别</span>或<span class="redFont">识别错误</span></p><p class="line-p-white">请点击拍照，录入信息！^-^</p></div>'
+                            let form = '<form action="/capture" method="post" enctype="multipart/form-data"><button type="submit" class="button_big">拍下当前照片</button><p class="line-p-s">(注意:保持单人出镜,可以多角度录入)</p></form>'
+                            document.getElementById('ReloadThis').innerHTML = p+form;
+                        }
+                    } else if(result.names && result.names.length > 1) {  // 多人
+                        let str = '';
+                        result.names.forEach(function(item, i) {
+                            if (item === '未知的同学' && i === result.names.indexOf('未知的同学')) {
+                                str += '<p class="line-p-blue"><span class="blueFont">未知的同学</span></p>'
+                            } else if (item !== '未知的同学') {
+                                str += '<p class="line-p-blue"><span class="blueFont">' + item + '</span></p>'
+                            }
+                        })
+                        let p = '<div><p class="line-p-big">Hi，你好~</p>' + str + '<p class="line-p-redwite">请<span class="redFont">未能识别</span>或<span class="redFont">识别错误</span>的同学</p><p class="line-p">单独留在取景框内</p><p class="line-p">以便录入准确信息^-^</p></div>';
+                        document.getElementById('ReloadThis').innerHTML = p;
+                    } else if(result.areas.length === 0) {  // 无人
+                        let p = '<div><p class="line-p-c">请靠近摄像头^-^</p><p class="line-p-t">让我看清你的脸</p><p class="line-p-s">(注意:不要遮挡面部)</p></div>'
+                            document.getElementById('ReloadThis').innerHTML = p;
+                    }
+
+                     if (document.getElementById('ReloadThis').innerHTML.search('input') < 0){
+                        console.log('000');
+                        setTimeout(function(){Ajax();}, 1000);
+                     }
+                     else{
+                        console.log('1111');
+                        setTimeout(function(){update_form_page();}, 1000);
+                     }
+                }
+            };
+            $http.open('GET', 'txt' , true);
+            $http.send(null);
+        }
+    }
+    function update_form_page()
+    {
+        var $http, $self = arguments.callee;
+        if (window.XMLHttpRequest) {
+            $http = new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+            try {
+                $http = new ActiveXObject('Msxml2.XMLHTTP');
+            } catch(e) {
+                $http = new ActiveXObject('Microsoft.XMLHTTP');
+            }
+        }
+        if ($http) {
+            $http.onreadystatechange = function()
+            {
+                if (/4|^complete$/.test($http.readyState)) {
+                    if ($http.responseText.search('true') >= 0){
+                        console.log('333');
+                        setTimeout(function(){Ajax();}, 1000);
+                    }
+                    else{
+                        console.log('444');
+                        setTimeout(function(){$self();}, 1000);
+                    }
+                }
+            };
+            $http.open('GET', 'is_leave' , true);
+            $http.send(null);
+        }
+    }
+    Ajax();
+</script>
+</html>
