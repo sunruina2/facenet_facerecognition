@@ -14,14 +14,14 @@ html,body{
 }
 .app-con .main-con{
 	width: calc(95% - 50px);
-	height: calc(65% - 50px);
+	height: calc(75% - 50px);
 	position: absolute;
 	top: 4%;
 	left: 0;
 	right: 0;
 	bottom: 0;
 	margin: auto;
-	padding: 35px 25px;
+	padding: 45px 30px;
 	background: url(../img/modelbg.png) no-repeat;
 	background-size:  100% 100%;
 	display: flex;
