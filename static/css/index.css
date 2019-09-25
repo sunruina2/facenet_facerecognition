@@ -1,0 +1,73 @@
+[v-cloak] {
+	display: none;
+} 
+html,body{
+	height: 100%;
+}
+.app-con {
+	background: #010A27;
+	position: relative;
+	min-height: 100%;
+}
+.app-con .app-img{
+	width: 100%;
+}
+.app-con .main-con{
+	width: calc(95% - 50px);
+	height: calc(75% - 50px);
+	position: absolute;
+	top: 4%;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	margin: auto;
+	padding: 45px 30px;
+	background: url(../img/modelbg.png) no-repeat;
+	background-size:  100% 100%;
+	display: flex;
+	justify-content: space-between;
+}
+/* .app-con .main-con .main-img {
+	width: 100%;
+	position: absolute;
+	left: 0;
+	top: 0;
+} */
+.app-con .main-con .camera-model{
+	height: calc(100% - 5px);
+	width: calc(75% - 5px);
+	position: relative;
+
+	/* background: url(img/cameargb.png) no-repeat;
+	background-size:  100% 100%; */
+
+}
+.app-con .main-con .camera-model .camera-img {
+	width: 100%;
+	height: 100%;
+	position: absolute;
+	top: 0;
+	left: 0;
+
+}
+.app-con .main-con .camera-model .camera{
+	height: 100%;
+	width: 100%;
+
+}
+.app-con .main-con .description-model{
+	height: calc(100% - 5px);
+	width: calc(25% - 5px);
+	position: relative;
+	background: url(../img/descriptionbg.png) no-repeat;
+	background-size:  100% 100%;
+}
+.result-model{
+    color: #fff;
+    position: absolute;
+    width: 90%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    margin: 2px 2px 2px 2px ;
+}
