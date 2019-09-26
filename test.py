@@ -47,5 +47,11 @@ import time
 # print(b)
 # print(c)
 
-for xi in range(10):
-    print(xi)
+# for xi in range(10):
+#     print(xi)
+
+import glob
+import os
+
+files_fresh = sorted(glob.iglob('../facenet_files/embs_pkl/*'), key=os.path.getctime, reverse=True)[0]
+print(files_fresh)

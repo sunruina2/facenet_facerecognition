@@ -6,28 +6,14 @@ import cv2
 import os
 import time
 from collections import Counter
-
+import glob
 
 class FacenetPre():
     def __init__(self):
 
-        # fr = open('../facenet_files/1knowns_db_0822.pkl', 'rb')
-        # piccode_path_dct = pickle.load(fr)[0]  # key 043374-人力资源部-张晓宛
-
-        fr = open('../facenet_files/embs_pkl/1knowns_db_color_facenet_iqj_0926V1.pkl', 'rb')
-        piccode_path_dct = pickle.load(fr)  # key 043374-人力资源部-张晓宛
-        self.known_names = np.asarray(list(piccode_path_dct.keys()))
-        self.known_embs = np.asarray(list(piccode_path_dct.values()))
-        peoples = [i.split('@')[1].split('-')[0] for i in self.known_names]
-        count_p = Counter(peoples)
-        print(count_p)
-        print('已知人脸-总共有m个人:', len(list(set(peoples))))
-        print('共计n个vectors:', len(self.known_names) - 1)
-        print('平均每人照片张数:', int((len(self.known_names) - 1 )/len(list(set(peoples)))))
-        print('目前还有x人没有照片:', 61 - len(list(set(peoples))))
-
-        # 计算已知人脸向量的摩长,[|B|= reshape( (N,), (N,1) ) ]，以便后边的计算实时流向量，计算最相似用户时用
-        self.known_vms = np.reshape(np.linalg.norm(self.known_embs, axis=1),(len(self.known_embs), 1))
+        # load已知人脸
+        self.files_fresh, self.known_names, self.known_embs, self.known_vms = None, None, None, None
+        self.load_knows_pkl()
 
         # gpu设置
         gpu_config = tf.ConfigProto()
@@ -49,6 +35,29 @@ class FacenetPre():
         face_embs = self.sess.run(self.embeddings,
                                   feed_dict={self.images_placeholder: crop_image, self.phase_train_placeholder: False})
         print('init')
+
+    @ staticmethod
+    def is_newest(model_path, init_time):
+        current_time = os.path.getctime(model_path)
+        return init_time != None and current_time == init_time
+
+    def load_knows_pkl(self):
+        # load 最新已知人脸pkl
+        self.files_fresh = sorted(glob.iglob('../facenet_files/embs_pkl/*'), key=os.path.getctime, reverse=True)[0]
+        fr = open(self.files_fresh, 'rb')
+        piccode_path_dct = pickle.load(fr)  # key 043374-人力资源部-张晓宛
+        self.known_names = np.asarray(list(piccode_path_dct.keys()))
+        self.known_embs = np.asarray(list(piccode_path_dct.values()))
+        # 计算已知人脸向量的摩长,[|B|= reshape( (N,), (N,1) ) ]，以便后边的计算实时流向量，计算最相似用户时用
+        self.known_vms = np.reshape(np.linalg.norm(self.known_embs, axis=1), (len(self.known_embs), 1))
+
+        peoples = [i.split('@')[1].split('-')[0] for i in self.known_names]
+        count_p = Counter(peoples)
+        print(count_p)
+        print('已知人脸-总共有m个人:', len(list(set(peoples))))
+        print('共计n个vectors:', len(self.known_names) - 1)
+        print('平均每人照片张数:', int((len(self.known_names) - 1) / len(list(set(peoples)))))
+        print('目前还有x人没有照片:', 61 - len(list(set(peoples))))
 
     def d_cos(self, v):  # 输入需要是一张脸的v:(512,), knows_v:(N, 512)
         v = np.reshape(v, (1, len(v)))  # 变为1行
@@ -82,7 +91,7 @@ class FacenetPre():
         cos_sim = self.d_cos(detect_face_embs_i)
         is_known = 0
         sim_p = max(cos_sim)
-        if sim_p >= 0.90:  # 越大越严格
+        if sim_p >= 0.92:  # 越大越严格
             loc_similar_most = np.where(cos_sim == sim_p)
             is_known = 1
             return known_names_i[loc_similar_most][0], is_known, sim_p
@@ -158,6 +167,10 @@ class FacenetPre():
         face_names = []
         is_knowns = []
         sim_pro_lst = []
+
+        fresh_pkl = sorted(glob.iglob('../facenet_files/embs_pkl/*'), key=os.path.getctime, reverse=True)[0]
+        if fresh_pkl != self.files_fresh:
+            self.load_knows_pkl()
         for face_k in range(len(face_embs)):
             face_name, is_known, sim_pro = self.emb_toget_name(face_embs[face_k], self.known_names, self.known_embs)
             face_names.append(face_name)
@@ -168,6 +181,8 @@ class FacenetPre():
         return face_names, is_knowns, face_embs, sim_pro_lst
 
 
-# if __name__ == "__main__":
-#     facenet_c = FacenetPre()
-#     facenet_c.gen_knows_db('../facenet_files/dc_marking/', '../facenet_files/embs_pkl/1knowns_db_color_facenet_iqj_0926V1.pkl')
+if __name__ == "__main__":
+    facenet_c = FacenetPre()
+    time_stamp_pkl = time.strftime("%Y%m%d%H%M%S", time.localtime())
+    pkl_name = time_stamp_pkl+'_knowns_db_color_facenet.pkl'
+    facenet_c.gen_knows_db('../facenet_files/dc_marking/', '../facenet_files/embs_pkl/'+pkl_name)
