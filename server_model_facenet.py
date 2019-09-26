@@ -14,7 +14,7 @@ class FacenetPre():
         # fr = open('../facenet_files/1knowns_db_0822.pkl', 'rb')
         # piccode_path_dct = pickle.load(fr)[0]  # key 043374-人力资源部-张晓宛
 
-        fr = open('../facenet_files/embs_pkl/1knowns_db_color_facenet0924_iqjv1.pkl', 'rb')
+        fr = open('../facenet_files/embs_pkl/1knowns_db_color_facenet_iqj_0926V1.pkl', 'rb')
         piccode_path_dct = pickle.load(fr)  # key 043374-人力资源部-张晓宛
         self.known_names = np.asarray(list(piccode_path_dct.keys()))
         self.known_embs = np.asarray(list(piccode_path_dct.values()))
@@ -170,4 +170,4 @@ class FacenetPre():
 
 # if __name__ == "__main__":
 #     facenet_c = FacenetPre()
-#     facenet_c.gen_knows_db('../facenet_files/dc_marking/', '../facenet_files/embs_pkl/1knowns_db_color_facenet0917_v3.pkl')
+#     facenet_c.gen_knows_db('../facenet_files/dc_marking/', '../facenet_files/embs_pkl/1knowns_db_color_facenet_iqj_0926V1.pkl')

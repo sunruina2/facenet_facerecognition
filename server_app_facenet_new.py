@@ -151,8 +151,7 @@ def gen():
         i += 1
         interval = int(time.time() - start_flag)
         if interval == 1:  # 计算每间隔了1s，会处理几张frame
-            print('#########################################################fps:', i)
-            print('#########################################################add_n:', add_faces_n)
+            print('#########################################################fps:', i, '  add_n:', add_faces_n)
             start_flag = time.time()
             i = 0
 
@@ -259,6 +258,5 @@ def txt():
 
 
 if __name__ == '__main__':
-    #app.run(host='0.0.0.0', port=8000)
     app.run(host='localhost', port=8000)
 
