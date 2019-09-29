@@ -705,6 +705,10 @@ def generateBoundingBox(imap, reg, scale, t):
 
 # function pick = nms(boxes,threshold,type)
 def nms(boxes, threshold, method):
+    # https: // blog.csdn.net / cuixing001 / article / details / 84946990
+    # threshold 越小抛弃候选框越多(重叠0.25以上就抛弃 vs 重叠0.5以上才抛弃)，框越少后续速度越快。因为欢迎系统大多都是单人情况，所以对nms多人要求不高，可以率为降低要求
+    # threshold = 0.4
+    # method = 'min'
     if boxes.size == 0:
         return np.empty((0, 3))
     x1 = boxes[:, 0]  # q1[0] (2>q1+2>q2+1>score+4>reg)>>9 = 0~8

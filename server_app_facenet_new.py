@@ -6,8 +6,8 @@ import numpy as np
 import server_mtcnn_def as fc_server
 import time
 import pickle
+from collections import Counter
 from server_model_facenet import FacenetPre
-
 facenet_pre_m = FacenetPre()
 fr = open('../facenet_files/pickle_files/officeid_name_dct.pkl', 'rb')
 officeid_name_dct = pickle.load(fr)
@@ -25,6 +25,10 @@ save_flag = 0
 add_faces_n = 0
 app = Flask(__name__)
 camera = None
+c_w, c_h = 1280, 720
+# c_w, c_h = 1920, 1080
+mtcnn_minsize = int(0.2 * min(c_w, c_h))
+last_exetime = time.time()
 
 
 @app.route('/')  # 主页
@@ -36,37 +40,64 @@ def index():
 def brenner(img_i):
     img_i = np.asarray(img_i, dtype='float64')
     x, y = img_i.shape
-    D = 0
     img_i -= 127.5
     img_i *= 0.0078125  # 标准化
-    for i in range(x - 2):
-        for j in range(y - 2):
-            D += (img_i[i + 2, j] - img_i[i, j]) ** 2
-    return D
+    center = img_i[0:x - 2, 0:y - 2]
+    center_xplus = img_i[2:, 0:y - 2]
+    center_yplus = img_i[0:x - 2:, 2:]
+    Dx = np.sum((center_xplus - center) ** 2)
+    Dy = np.sum((center_yplus - center) ** 2)
+    return Dx, Dy
 
 
-def rg_mark_frame(f_pic, tstr_pic):
+def rg_mark_frame(f_pic):
     global names
     global faceembs
     global f_areas_r_lst
     global names1p_last_n
-    global lastsave_embs0
-    dets, crop_images, point5, j = fc_server.load_and_align_data(f_pic, 160)  # 获取人脸, 由于frame色彩空间rgb不对应问题，需统一转为灰色图片
+    global lastsave_embs0, mtcnn_minsize
 
-    # print('align_done')
-    # print('point5', point5.shape)
-    # print('point5', point5)
+    # 统计每步执行时间
+    # last_exetime_rg = time.time()
+    # now_exetime_rg = time.time()
+    # print('TIME rg: ********************************************** Start', np.round((now_exetime_rg - last_exetime_rg), 4))
+    # last_exetime_rg = now_exetime_rg
+
+    dets, crop_images, point5, j = fc_server.load_and_align_data(f_pic, 160,
+                                                                 minsize=mtcnn_minsize)  # 获取人脸, 由于frame色彩空间rgb不对应问题，需统一转为灰色图片
+
+
+    # now_exetime_rg = time.time()
+    # print('TIME rg: aligin', np.round((now_exetime_rg - last_exetime_rg), 4))
+    # last_exetime_rg = now_exetime_rg
 
     if j != 0:
-        is_qingxi_p = brenner(cv2.cvtColor(crop_images[0], cv2.COLOR_BGR2GRAY))
+        is_qingxi1, is_qingxi0 = brenner(cv2.cvtColor(crop_images[0], cv2.COLOR_BGR2GRAY))  # is_qingxi1是枞向运动模糊方差，0是横向
+        # now_exetime_rg = time.time()
+        # print('TIME rg: qingxidu old filter', np.round((now_exetime_rg - last_exetime_rg), 4), is_qingxi1)
+        # last_exetime_rg = now_exetime_rg
+
+        # is_qingxi_p = cv2.Laplacian(cv2.cvtColor(crop_images[0], cv2.COLOR_BGR2GRAY), cv2.CV_16S, ksize=3).var()
+        # now_exetime_rg = time.time()
+        # # print('TIME rg: qingxidu new filter', np.round((now_exetime_rg - last_exetime_rg), 4), is_qingxi_p)
+        # last_exetime_rg = now_exetime_rg
+        tstr_pic = time.strftime("%Y%m%d%H%M%S", time.localtime())
         now_hour = int(tstr_pic[8:10])
-        if now_hour >= 17:
-            qx_hold = 20
+        if now_hour >= 15:
+            # qx_hold = 70
+            qx_hold = 70
         else:
-            qx_hold = 100
-        if is_qingxi_p >= qx_hold:  # 有人且清晰，则画人脸，进行识别名字
+            qx_hold = 120
+        if is_qingxi1 >= qx_hold and is_qingxi0 >= qx_hold:  # 有人且清晰，则画人脸，进行识别名字
+
+            # now_exetime_rg = time.time()
+            # print('TIME rg: qingxidu filter', np.round((now_exetime_rg - last_exetime_rg), 4))
+            # last_exetime_rg = now_exetime_rg
+
             names, faceis_konwns, faceembs, min_sims = facenet_pre_m.imgs_get_names(crop_images)  # 获取人脸名字
-            # print('rg_done')
+            # now_exetime_rg = time.time()
+            # print('TIME rg: facenet rg', np.round((now_exetime_rg - last_exetime_rg), 4))
+            # last_exetime_rg = now_exetime_rg
 
             # 抽样存储识别图片,图片命名：时间戳 + 是否和上一张同人 + 库中最相似的相似度 + 大小 + 识别名字结果
             if len(names) == 1:
@@ -77,15 +108,15 @@ def rg_mark_frame(f_pic, tstr_pic):
                         is_same_t = '1'
                     else:
                         is_same_t = '0'
-                    # print(str(is_same_p))
-                    # print(str(is_same_p)[2:4])
                     fpic_path = '../facenet_files/stream_pictures/' + tstr_pic + '_' + is_same_t + '-' + str(
-                        is_same_p[0])[
-                                                                                                         2:4] + '_' + str(
-                        min_sims[0])[2:4]
+                        is_same_p[0])[2:4] + '_' + str(min_sims[0])[2:4] + '_' + str(int(is_qingxi1)) + '_' + str(int(is_qingxi0))
                     cv2.imwrite(fpic_path + '_crop_' + names[0] + '.jpg', crop_images[0])
-                    cv2.imwrite(fpic_path + '_raw_' + names[0] + '.jpg', f_pic)
+                    # cv2.imwrite(fpic_path + '_raw_' + names[0] + '.jpg', f_pic)
                     lastsave_embs0 = faceembs[0]  # 更新last save emb，以便判定本帧是否和上一帧同一个人
+
+                    # now_exetime_rg = time.time()
+                    # print('TIME rg: save stream pic', np.round((now_exetime_rg - last_exetime_rg), 4))
+                    # last_exetime_rg = now_exetime_rg
 
                     # 画鼻子眼睛保存，
                     # print('标记5点位置', point5[0])
@@ -96,9 +127,12 @@ def rg_mark_frame(f_pic, tstr_pic):
                     # mark5 = mark5[0:-1]
                     # cv2.imwrite(fpic_path + '_cropmark' + '_' + mark5 + '_' + names[0] + '.jpg', crop_img_mark)
 
-
             # 绘制矩形框并标注文字
             f_pic, f_areas_r_lst = fc_server.mark_pic(dets, names, f_pic)
+
+            # now_exetime_rg = time.time()
+            # print('TIME rg: draw pic', np.round((now_exetime_rg - last_exetime_rg), 4))
+            # last_exetime_rg = now_exetime_rg
 
             # #  对人脸名字进行稳定性修正
             # if len(names) == 5:
@@ -117,10 +151,6 @@ def rg_mark_frame(f_pic, tstr_pic):
             #         else:  # 如果名字种类两个名字以上，且Top1是已知，则返回Top1
             #             names[0] = name_top1
 
-            # print('mark_done')
-            # print('#########################################################', names)
-            # print('#########################################################', f_areas_r_lst)
-
             return f_pic, names, f_areas_r_lst
         else:  # 有人但不清晰，则只画人脸
             names = ['抱歉清晰度不够^ ^' for i in dets]
@@ -131,22 +161,26 @@ def rg_mark_frame(f_pic, tstr_pic):
 
 
 def gen():
-    global names, camera, capture_saved, capture_image
-    global f_areas_r_lst, realtime, new_photo, save_flag, add_faces_n
+    global names, camera, capture_saved, capture_image, last_exetime
+    global f_areas_r_lst, realtime, new_photo, save_flag, add_faces_n, c_w, c_h
     if not camera:
-        camera = VideoStream(src=0)
-        camera.stream.stream.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M', 'J', 'P', 'G'))
-        camera.stream.stream.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-        camera.stream.stream.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+        camera = VideoStream(0)
+        camera.stream.stream.set(cv2.CAP_PROP_FRAME_WIDTH, c_w)
+        camera.stream.stream.set(cv2.CAP_PROP_FRAME_HEIGHT, c_h)
         camera.start()
 
-    start_flag = time.time()
     i = 0
-
+    # 统计fps的时间
+    start_flag = time.time()
     while 1:
-        time.sleep(0.0001)  # simulate time between events
+
         frame = camera.read()
         # 使用generator函数输出视频流， 每次请求输出的content类型是image/jpeg
+
+        # 统计每步执行时间
+        # now_exetime = time.time()
+        # print('TIME:load>>gen', np.round((now_exetime - last_exetime), 4))
+        # last_exetime = now_exetime
 
         i += 1
         interval = int(time.time() - start_flag)
@@ -155,20 +189,27 @@ def gen():
             start_flag = time.time()
             i = 0
 
-        time_stamp = time.strftime("%Y%m%d%H%M%S",
-                                   time.localtime())  # 每天23点00分的第一帧的时间下进行一次name_embs存储，因为可能有重名的问题，所以不能存为dict
-        if time_stamp[8:13] == ('2300' + '0'):
-            save_flag += 1
-            if save_flag == 1:
-                with open("../facenet_files/pickle_files/" + time_stamp + "_names_lst.pkl", 'wb') as f1:
-                    pickle.dump(facenet_pre_m.known_names, f1)
-                with open("../facenet_files/pickle_files/" + time_stamp + "_embs_lst.pkl", 'wb') as f2:
-                    pickle.dump(facenet_pre_m.known_names, f2)
-        if time_stamp[8:13] == ('2259' + '0'):
-            save_flag = 0
+        # # 每天23点00分的第一帧的时间下进行一次name_embs存储，因为可能有重名的问题，所以不能存为dict
+        # time_stamp = time.strftime("%Y%m%d%H%M%S", time.localtime())
+        # if time_stamp[8:13] == ('2300' + '0'):
+        #     save_flag += 1
+        #     if save_flag == 1:
+        #         with open("../facenet_files/pickle_files/" + time_stamp + "_names_lst.pkl", 'wb') as f1:
+        #             pickle.dump(facenet_pre_m.known_names, f1)
+        #         with open("../facenet_files/pickle_files/" + time_stamp + "_embs_lst.pkl", 'wb') as f2:
+        #             pickle.dump(facenet_pre_m.known_names, f2)
+        # if time_stamp[8:13] == ('2259' + '0'):
+        #     save_flag = 0
+
         if frame is not None:
             frame = cv2.flip(frame, 1)  # 前端输出镜面图片
-            new_frame, names, f_areas_r_lst = rg_mark_frame(frame, time_stamp)
+            new_frame, names, f_areas_r_lst = rg_mark_frame(frame)
+
+            # 统计每步执行时间
+            # now_exetime = time.time()
+            # print('TIME:gen>>mark', np.round((now_exetime - last_exetime), 4))
+            # last_exetime = now_exetime
+
             if not realtime:
                 if not capture_saved:
                     new_photo = frame
@@ -185,8 +226,14 @@ def gen():
                     capture_image = None
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n\r\n')
+
+            # 统计每步执行时间
+            # now_exetime = time.time()
+            # print('TIME:mark>>dispaly', np.round((now_exetime - last_exetime), 4))
+            # last_exetime = now_exetime
         else:
             # print('img_None')
+            camera = VideoStream(0)  # 摄像头失效抓取为空，则重启摄像头
             continue
 
 
@@ -213,7 +260,7 @@ def add():
             facenet_pre_m.known_embs = np.insert(facenet_pre_m.known_embs, 0,
                                                  values=np.asarray(faceembs[0]), axis=0)
             facenet_pre_m.known_vms = np.insert(facenet_pre_m.known_vms, 0,
-                                                 values=np.linalg.norm(faceembs[0]), axis=0)
+                                                values=np.linalg.norm(faceembs[0]), axis=0)
             facenet_pre_m.known_names = np.insert(facenet_pre_m.known_names, 0,
                                                   values=np.asarray(
                                                       time_stamp + '_' + request.form['cars'] + '@' + user_new),
@@ -259,4 +306,3 @@ def txt():
 
 if __name__ == '__main__':
     app.run(host='localhost', port=8000)
-

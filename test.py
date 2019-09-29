@@ -49,9 +49,41 @@ import time
 
 # for xi in range(10):
 #     print(xi)
+#
+# import glob
+# import os
+#
+# files_fresh = sorted(glob.iglob('../facenet_files/embs_pkl/*'), key=os.path.getctime, reverse=True)[0]
+# print(files_fresh)
 
-import glob
-import os
 
-files_fresh = sorted(glob.iglob('../facenet_files/embs_pkl/*'), key=os.path.getctime, reverse=True)[0]
-print(files_fresh)
+# import collections
+#
+# # d1 = {}
+# d1 = collections.OrderedDict()  # 将普通字典转换为有序字典
+# d1['a'] = 'A'
+# d1['b'] = 'B'
+# d1['c'] = 'C'
+# d1['d'] = 'D'
+# for k, v in d1.items():
+#     print(k, v)
+
+import numpy as np
+
+
+def brenner(img_i):
+    img_i = np.asarray(img_i, dtype='float64')
+    x, y = img_i.shape
+    img_i -= 127.5
+    img_i *= 0.0078125  # 标准化
+    center = img_i[0:x - 2, 0:y - 2]
+    center_xplus = img_i[2:, 0:y - 2]
+    center_yplus = img_i[0:x - 2:, 2:]
+    Dx = np.sum((center_xplus - center) ** 2)
+    Dy = np.sum((center_yplus - center) ** 2)
+    return Dx, Dy
+
+
+dx, dy = brenner(
+    [[1, 2, 3, 4, 5], [11, 12, 13, 14, 15], [21, 22, 23, 24, 25], [31, 32, 33, 34, 35], [41, 42, 43, 44, 55]])
+print(dx, dy)

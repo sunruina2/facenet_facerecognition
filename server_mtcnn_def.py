@@ -10,11 +10,14 @@ import align.detect_face
 from os.path import join as pjoin
 import time
 from PIL import ImageFont, ImageDraw, Image
+
 # mark_color = (205, 255, 0)
 mark_color = (225, 209, 0)
 
 fontpath = "models/wryh.ttf"  # 32为字体大小
 font22 = ImageFont.truetype(fontpath, 22)
+
+
 # http://www.sfinst.com/?p=1683
 
 
@@ -107,17 +110,20 @@ def turn_face(b_boxes, points5):
     return b_boxes_new, points5_new
 
 
-def load_and_align_data(image, image_size):  # 返回彩图
+def load_and_align_data(image, image_size, minsize=100):  # 返回彩图
     # face detection parameters
-    minsize = 108  # minimum size of face
-    threshold = [0.6, 0.7, 0.7]  # three steps's threshold 三步的阈值
-    factor = 0.709  # scale factor 比例因子
+    # 以下两个阈值调整后，歪脸和遮挡会被过滤掉
+
+    # threshold = [0.6, 0.7, 0.7]  # three steps's threshold 三步的阈值
+    threshold = [0.85, 0.7, 0.7]  # 第一步pnet阈值升高，候选框会比较少
+
+    # factor = 0.709  # scale factor 比例因子，越小越快
+    factor = 0.4  # scale factor 比例因子，图像金字塔每次缩小的保留比例，因此factor值越小越快
+
     # 读取图片
-    # print(type(image), image.shape)
     img = to_rgb(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY))
-    # 获取图片的shape
     img_size = np.asarray(img.shape)[0:2]
-    # 返回边界框数组 （参数分别是输入图片 脸部最小尺寸 三个网络 阈值 factor不清楚）
+    # 返回边界框数组 （参数分别是输入图片 脸部最小尺寸 三个网络 阈值 ）
     bounding_boxes, points_5 = align.detect_face.detect_face(img, minsize, pnet, rnet, onet, threshold, factor)
 
     # bounding_boxes=[[x1,y1,x2,y2,score], [x1,y1,x2,y2,score]]，points_5 = [[x1左眼，x2左眼], [x1右眼，x2右眼], [x1鼻子，x2鼻子], [x左嘴角，..], [x右嘴角, ..], [ y左眼，..], [y右眼，..], [y鼻子，..], [y左嘴角，..], [y右嘴角, ..]]
@@ -145,25 +151,18 @@ def load_and_align_data(image, image_size):  # 返回彩图
         crop_image = np.stack(crop)
 
         points_5_crop = np.zeros(points_5.shape)
-        # print('bounding_boxes, points_5')
-        # print(points_5_crop.shape)
-        # print(points_5.shape)
-        # print(bounding_boxes, points_5)
-
-        f_ns = len(points_5[0])
-
-        for xi in range(10):
-            for fi in range(f_ns):
-                fi_w = bounding_boxes[fi][2] - bounding_boxes[fi][0]
-                fi_h = bounding_boxes[fi][3] - bounding_boxes[fi][1]
-                if xi <= 4:
-                    # print('points_5[xi][fi]')
-                    # print(points_5[xi][fi])
-                    # print(bounding_boxes[fi][0])
-                    points_5_crop[xi][fi] = ((points_5[xi][fi] - bounding_boxes[fi][0]) / fi_w) * image_size
-                elif 4 < xi <= 9:
-                    points_5_crop[xi][fi] = ((points_5[xi][fi] - bounding_boxes[fi][1]) / fi_h) * image_size
-        points_5_crop = np.asarray(points_5_crop, dtype=int)
+        # # 5点标记
+        # f_ns = len(points_5[0])
+        #
+        # for xi in range(10):
+        #     for fi in range(f_ns):
+        #         fi_w = bounding_boxes[fi][2] - bounding_boxes[fi][0]
+        #         fi_h = bounding_boxes[fi][3] - bounding_boxes[fi][1]
+        #         if xi <= 4:
+        #             points_5_crop[xi][fi] = ((points_5[xi][fi] - bounding_boxes[fi][0]) / fi_w) * image_size
+        #         elif 4 < xi <= 9:
+        #             points_5_crop[xi][fi] = ((points_5[xi][fi] - bounding_boxes[fi][1]) / fi_h) * image_size
+        # points_5_crop = np.asarray(points_5_crop, dtype=int)
         return det_f, crop_image, points_5_crop, 1
 
 
@@ -236,7 +235,6 @@ gpu_config.gpu_options.allow_growth = True
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 with tf.Graph().as_default():
-
     sess = tf.Session(config=gpu_config)
     with sess.as_default():
         pnet, rnet, onet = align.detect_face.create_mtcnn(sess, None)
