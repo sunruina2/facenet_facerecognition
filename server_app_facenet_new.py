@@ -244,7 +244,7 @@ def video_feed():
 @app.route('/add', methods=['POST'])
 def add():
     # update embedding
-    global faceembs, realtime, new_photo, officeid_name_dct, add_faces_n
+    global faceembs, realtime, new_photo, officeid_name_dct, add_faces_n, capture_saved
     # user_new = request.form["new_user"].replace(' ', '')
     if request.form['submit'] == 'yes':
         userid_new = request.form["new_user"].replace(' ', '').strip()
@@ -268,6 +268,7 @@ def add():
                 print('工号未知的新员工:', int(userid_new))
 
     realtime = True
+    capture_saved = False
     return redirect('/')
 
 
