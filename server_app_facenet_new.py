@@ -20,7 +20,6 @@ f_areas_r_lst = []
 names1p_last_n = []
 realtime = True
 capture_saved = False
-capture_image = None
 new_photo = None
 save_flag = 0
 add_faces_n = 0
@@ -162,7 +161,7 @@ def rg_mark_frame(f_pic):
 
 
 def gen():
-    global camera, capture_saved, capture_image, last_exetime
+    global camera, capture_saved, last_exetime
     global realtime, new_photo, save_flag, add_faces_n, c_w, c_h
     if not camera:
         camera = VideoStream(0)
@@ -216,17 +215,13 @@ def gen():
             if not realtime:
                 if not capture_saved:
                     new_photo = frame
-                    _, jpeg = cv2.imencode('.jpg', frame)
-                    capture_image = jpeg
                     capture_saved = True
+                _, jpeg = cv2.imencode('.jpg', new_photo)
                 yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + capture_image.tobytes() + b'\r\n\r\n')
+                       b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n\r\n')
                 break
             else:
                 _, jpeg = cv2.imencode('.jpg', new_frame)
-                if capture_saved:
-                    capture_saved = False
-                    capture_image = None
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n\r\n')
 
@@ -285,17 +280,16 @@ def capture():
 
 @app.route('/is_leave')
 def is_leave():
-    global f_areas_r_lst, realtime
+    global f_areas_r_lst, realtime, capture_saved
     if len(f_areas_r_lst) == 0 or f_areas_r_lst[0] < 0.01:
         realtime = True
-        return str(realtime)
-    else:
-        return str(realtime)
+        capture_saved = False
+    return str(realtime)
 
 
 @app.route('/txt')
 def txt():
-    global names
+    global names, f_areas_r_lst, realtime
     # names = [i.split('@')[-1].split('-')[0] for i in names]
     return {'names': names, 'areas': f_areas_r_lst, 'realtime': str(realtime)}
 
