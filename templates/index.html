@@ -344,14 +344,14 @@
 		  	isAlive() {
 		  		let self = this;
 		  		axios.get('is_leave').then(res => {
-		  			if (res.data === true) {
+		  			if (res.data === 'True') {
 		  			    console.log(111111111);
 		  			    setTimeout(function(){
 		  					self.getData();
 		  				}, 1000);
 		  				//self.clearData();
 		  				//window.location.reload();
-		  			} else if(res.data === false) {
+		  			} else if(res.data === 'False') {
 		  			    console.log(2222222);
 		  				setTimeout(function(){
 		  					self.isAlive();

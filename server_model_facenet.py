@@ -8,6 +8,7 @@ import time
 from collections import Counter
 import glob
 
+
 class FacenetPre():
     def __init__(self):
 
@@ -59,14 +60,27 @@ class FacenetPre():
         print('平均每人照片张数:', int((len(self.known_names) - 1) / len(list(set(peoples)))))
         print('目前还有x人没有照片:', 61 - len(list(set(peoples))))
 
-    def d_cos(self, v):  # 输入需要是一张脸的v:(512,), knows_v:(N, 512)
+    def d_cos(self, v, vs=None):  # 输入需要是一张脸的v:(512,) or (512,1), knows_v:(N, 512)
+        if vs is None:
+            vs = self.known_embs
+            vs_norm = self.known_vms
+        else:
+            if len(vs.shape) == 1:
+                vs = np.reshape(vs, (1, len(vs)))
+                vs_norm = np.reshape(np.linalg.norm(vs, axis=1), (len(vs), 1))
+            else:
+                vs = vs
+                vs_norm = np.reshape(np.linalg.norm(vs, axis=1), (len(vs), 1))
+
         v = np.reshape(v, (1, len(v)))  # 变为1行
-        num = np.dot(self.known_embs, v.T)  # (N, 1)
-        denom = np.linalg.norm(v) * self.known_vms  # [|A|=float] * [|B|= reshape( (N,), (N,1) ) ] = (N, 1)
+        num = np.dot(vs, v.T)  # (N, 1)
+        denom = np.linalg.norm(v) * vs_norm  # [|A|=float] * [|B|= reshape( (N,), (N,1) ) ] = (N, 1)
         cos = num / denom  # 余弦值 A * B / |A| * |B| 本身也是0-1之间的...
         # print('cos describe', max(cos), min(cos), np.mean(cos), np.var(cos))
         sim = 0.5 + 0.5 * cos  # 归一化到0-1之间, (N, 1)
         # print('sim describe', max(sim), min(sim), np.mean(sim), np.var(sim))
+        sim = np.reshape(sim, (len(sim),))  # reshape((N,1), (N,)) 变成一维，方便后边算最大值最小值
+
         """
         人脸库中的照片pre_img.jpg，余弦距离参考值如下，有人脸图片cos均值在0.40842828，sim均值在 0.7042141，因此至少sim要大于0.70
         cos describe [0.99029934] [-0.07334533] 0.40842828 0.016055087
@@ -83,7 +97,6 @@ class FacenetPre():
         sim describe [0.7234086] [0.41399854] 0.50787616 0.0011495701
         pre_1pic ['未知的同学'] [0.0] [0]
         """
-        sim = np.reshape(sim, (len(sim),))  # reshape((N,1), (N,)) 变成一维，方便后边算最大值最小值
 
         return sim
 
@@ -128,7 +141,7 @@ class FacenetPre():
                         if image_path.split('.')[0].split('_')[-1] != 'raw':
                             pic_i += 1
                             time_stamp = time.strftime("%Y%m%d%H%M%S", time.localtime())
-                            image_name = time_stamp + '_manualselected@' + people_name + '-' + str(pic_i)
+                            image_name = time_stamp + '-manualproc@' + people_name + '-' + str(pic_i)
                             print(image_name)
 
                             image_pre = cv2.imread(image_path)

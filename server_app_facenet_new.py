@@ -8,6 +8,7 @@ import time
 import pickle
 from collections import Counter
 from server_model_facenet import FacenetPre
+
 facenet_pre_m = FacenetPre()
 fr = open('../facenet_files/pickle_files/officeid_name_dct.pkl', 'rb')
 officeid_name_dct = pickle.load(fr)
@@ -66,7 +67,6 @@ def rg_mark_frame(f_pic):
     dets, crop_images, point5, j = fc_server.load_and_align_data(f_pic, 160,
                                                                  minsize=mtcnn_minsize)  # 获取人脸, 由于frame色彩空间rgb不对应问题，需统一转为灰色图片
 
-
     # now_exetime_rg = time.time()
     # print('TIME rg: aligin', np.round((now_exetime_rg - last_exetime_rg), 4))
     # last_exetime_rg = now_exetime_rg
@@ -83,11 +83,10 @@ def rg_mark_frame(f_pic):
         # last_exetime_rg = now_exetime_rg
         tstr_pic = time.strftime("%Y%m%d%H%M%S", time.localtime())
         now_hour = int(tstr_pic[8:10])
-        if now_hour >= 15:
-            # qx_hold = 70
-            qx_hold = 70
+        if now_hour >= 17:
+            qx_hold = 50
         else:
-            qx_hold = 120
+            qx_hold = 100
         if is_qingxi1 >= qx_hold and is_qingxi0 >= qx_hold:  # 有人且清晰，则画人脸，进行识别名字
 
             # now_exetime_rg = time.time()
@@ -95,6 +94,7 @@ def rg_mark_frame(f_pic):
             # last_exetime_rg = now_exetime_rg
 
             names, faceis_konwns, faceembs, min_sims = facenet_pre_m.imgs_get_names(crop_images)  # 获取人脸名字
+            names = [i.split('@')[-1].split('-')[0] for i in names]
             # now_exetime_rg = time.time()
             # print('TIME rg: facenet rg', np.round((now_exetime_rg - last_exetime_rg), 4))
             # last_exetime_rg = now_exetime_rg
@@ -103,13 +103,14 @@ def rg_mark_frame(f_pic):
             if len(names) == 1:
                 sead = hash(str(time.time())[-6:])
                 if sead % 2 == 1:  # hash采样
-                    is_same_p = facenet_pre_m.d_cos(faceembs[0])
+                    is_same_p = facenet_pre_m.d_cos(faceembs[0], lastsave_embs0)
                     if is_same_p[0] > 0.85:
                         is_same_t = '1'
                     else:
                         is_same_t = '0'
                     fpic_path = '../facenet_files/stream_pictures/' + tstr_pic + '_' + is_same_t + '-' + str(
-                        is_same_p[0])[2:4] + '_' + str(min_sims[0])[2:4] + '_' + str(int(is_qingxi1)) + '_' + str(int(is_qingxi0))
+                        is_same_p[0])[2:4] + '_' + str(int(is_qingxi1)) + '-' + str(int(is_qingxi0)) + '_' + str(
+                        min_sims[0])[2:4]
                     cv2.imwrite(fpic_path + '_crop_' + names[0] + '.jpg', crop_images[0])
                     # cv2.imwrite(fpic_path + '_raw_' + names[0] + '.jpg', f_pic)
                     lastsave_embs0 = faceembs[0]  # 更新last save emb，以便判定本帧是否和上一帧同一个人
@@ -151,20 +152,22 @@ def rg_mark_frame(f_pic):
             #         else:  # 如果名字种类两个名字以上，且Top1是已知，则返回Top1
             #             names[0] = name_top1
 
-            return f_pic, names, f_areas_r_lst
+            return f_pic
         else:  # 有人但不清晰，则只画人脸
-            names = ['抱歉清晰度不够^ ^' for i in dets]
+            names = ['抱歉清晰度不够^^' for i in dets]
             f_pic, f_areas_r_lst = fc_server.mark_pic(dets, names, f_pic)
-            return f_pic, [], []
+            return f_pic
     else:  # 没有人
-        return f_pic, [], []
+        return f_pic
 
 
 def gen():
-    global names, camera, capture_saved, capture_image, last_exetime
-    global f_areas_r_lst, realtime, new_photo, save_flag, add_faces_n, c_w, c_h
+    global camera, capture_saved, capture_image, last_exetime
+    global realtime, new_photo, save_flag, add_faces_n, c_w, c_h
     if not camera:
         camera = VideoStream(0)
+
+        camera.stream.stream.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('Y', 'U', 'Y', 'V'))
         camera.stream.stream.set(cv2.CAP_PROP_FRAME_WIDTH, c_w)
         camera.stream.stream.set(cv2.CAP_PROP_FRAME_HEIGHT, c_h)
         camera.start()
@@ -203,7 +206,7 @@ def gen():
 
         if frame is not None:
             frame = cv2.flip(frame, 1)  # 前端输出镜面图片
-            new_frame, names, f_areas_r_lst = rg_mark_frame(frame)
+            new_frame = rg_mark_frame(frame)
 
             # 统计每步执行时间
             # now_exetime = time.time()
@@ -249,24 +252,25 @@ def add():
     global faceembs, realtime, new_photo, officeid_name_dct, add_faces_n
     # user_new = request.form["new_user"].replace(' ', '')
     if request.form['submit'] == 'yes':
-        userid_new = request.form["new_user"].replace(' ', '')
+        userid_new = request.form["new_user"].replace(' ', '').strip()
         if len(userid_new) > 0:
-            try:
+            if int(userid_new) in officeid_name_dct:
                 user_new = officeid_name_dct[int(userid_new)]
-            except:
-                user_new = '工号未知的新员工'
-            add_faces_n += 1
-            time_stamp = time.strftime("%Y%m%d%H%M%S", time.localtime())
-            facenet_pre_m.known_embs = np.insert(facenet_pre_m.known_embs, 0,
-                                                 values=np.asarray(faceembs[0]), axis=0)
-            facenet_pre_m.known_vms = np.insert(facenet_pre_m.known_vms, 0,
-                                                values=np.linalg.norm(faceembs[0]), axis=0)
-            facenet_pre_m.known_names = np.insert(facenet_pre_m.known_names, 0,
-                                                  values=np.asarray(
-                                                      time_stamp + '_' + request.form['cars'] + '@' + user_new),
-                                                  axis=0)
-            cv2.imwrite("../facenet_files/photos/" + time_stamp + '_' + request.form['cars'] + '@' + user_new + '.jpg',
-                        new_photo)
+
+                add_faces_n += 1
+                time_stamp = time.strftime("%Y%m%d%H%M%S", time.localtime())
+                facenet_pre_m.known_embs = np.insert(facenet_pre_m.known_embs, 0,
+                                                     values=np.asarray(faceembs[0]), axis=0)
+                facenet_pre_m.known_vms = np.insert(facenet_pre_m.known_vms, 0,
+                                                    values=np.linalg.norm(faceembs[0]), axis=0)
+                facenet_pre_m.known_names = np.insert(facenet_pre_m.known_names, 0,
+                                                      values=np.asarray(
+                                                          time_stamp + '-' + request.form['cars'] + '@' + user_new),
+                                                      axis=0)
+                cv2.imwrite("../facenet_files/photos/" + time_stamp + '-' + request.form['cars'] + '@' + user_new + '.jpg',
+                            new_photo)
+            else:
+                print('工号未知的新员工:', int(userid_new))
 
     realtime = True
     return redirect('/')
@@ -282,25 +286,17 @@ def capture():
 @app.route('/is_leave')
 def is_leave():
     global f_areas_r_lst, realtime
-    print(f_areas_r_lst)
-    if len(f_areas_r_lst) == 0:
+    if len(f_areas_r_lst) == 0 or f_areas_r_lst[0] < 0.01:
         realtime = True
-        return 'true'
-    elif f_areas_r_lst[0] < 0.01:
-        realtime = True
-        return 'true'
+        return str(realtime)
     else:
-        return 'false'
+        return str(realtime)
 
 
 @app.route('/txt')
 def txt():
     global names
-    names = [
-        i.replace('face_', '').replace('manualselected', '').replace('正面', '').replace('侧脸', '').replace('仰头',
-                                                                                                         '').replace(
-            '低头', '').split('@')[
-            -1].replace('_', '').split('-')[0] for i in names]
+    # names = [i.split('@')[-1].split('-')[0] for i in names]
     return {'names': names, 'areas': f_areas_r_lst, 'realtime': str(realtime)}
 
 

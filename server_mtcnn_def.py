@@ -193,11 +193,6 @@ def mark_pic(det_lst, name_lst, pic):
     c_size = 22
     for f_i in range(len(det_lst)):
         bw = det_lst[f_i, 2] - det_lst[f_i, 0]  # (240, 248, 255)
-        name_lst = [
-            i.replace('face_', '').replace('manualselected', '').replace('正面', '').replace('侧脸', '').replace('仰头',
-                                                                                                             '').replace(
-                '低头', '').split('@')[
-                -1].replace('_', '').split('-')[0] for i in name_lst]
         cv2.line(pic, (det_lst[f_i, 0], det_lst[f_i, 1]), (det_lst[f_i, 0] + int(bw * 0.20), det_lst[f_i, 1]),
                  mark_color, 2)  # 颜色是BGR顺序
         cv2.line(pic, (det_lst[f_i, 0], det_lst[f_i, 1]), (det_lst[f_i, 0], det_lst[f_i, 1] + int(bw * 0.20)),
